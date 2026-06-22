@@ -733,46 +733,60 @@ function CustomerView(props: {
             );
             const available = product.available && stockCheck(required, inventory, reserved).ok;
 
+            const selected = selectedProduct.id === product.id;
+
             return (
-              <article
-                key={product.id}
-                className={selectedProduct.id === product.id ? "product-card selected" : "product-card"}
-              >
-                <div className="product-image">
-                  <img src={product.image} alt={product.alt} />
-                  {product.badge && <span className="badge">{product.badge}</span>}
-                </div>
-                <div className="product-copy">
-                  <div>
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
+              <div className="product-entry" key={product.id}>
+                <article className={selected ? "product-card selected" : "product-card"}>
+                  <div className="product-image">
+                    <img src={product.image} alt={product.alt} />
+                    {product.badge && <span className="badge">{product.badge}</span>}
                   </div>
-                  <div className="product-actions">
-                    <strong>{formatCurrency(product.basePrice)}</strong>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => onSelectProduct(product.id)}
-                      disabled={!available}
-                    >
-                      {available ? <Pencil size={16} aria-hidden /> : <Ban size={16} aria-hidden />}
-                      {available ? "Vybrat" : "Není"}
-                    </button>
+                  <div className="product-copy">
+                    <div>
+                      <h3>{product.name}</h3>
+                      <p>{product.description}</p>
+                    </div>
+                    <div className="product-actions">
+                      <strong>{formatCurrency(product.basePrice)}</strong>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => onSelectProduct(product.id)}
+                        disabled={!available}
+                      >
+                        {available ? <Pencil size={16} aria-hidden /> : <Ban size={16} aria-hidden />}
+                        {available ? "Vybrat" : "Není"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </article>
+                </article>
+
+                {selected && (
+                  <div className="mobile-configurator-slot" aria-label={`Personalizace produktu ${product.name}`}>
+                    <ProductConfigurator
+                      product={selectedProduct}
+                      options={draftOptions}
+                      setOptions={setDraftOptions}
+                      onAdd={onAdd}
+                    />
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
       </div>
 
       <aside className="order-panel" aria-label="Košík a nastavení objednávky">
-        <ProductConfigurator
-          product={selectedProduct}
-          options={draftOptions}
-          setOptions={setDraftOptions}
-          onAdd={onAdd}
-        />
+        <div className="desktop-configurator-slot">
+          <ProductConfigurator
+            product={selectedProduct}
+            options={draftOptions}
+            setOptions={setDraftOptions}
+            onAdd={onAdd}
+          />
+        </div>
 
         <div className="checkout-block">
           <div className="section-heading tight">

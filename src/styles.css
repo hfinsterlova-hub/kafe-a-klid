@@ -516,6 +516,18 @@ h3 {
   gap: 0.85rem;
 }
 
+.product-entry {
+  display: contents;
+}
+
+.mobile-configurator-slot {
+  display: none;
+}
+
+.desktop-configurator-slot {
+  display: block;
+}
+
 .product-card {
   overflow: hidden;
   background: #ffffff;
@@ -1306,6 +1318,24 @@ h3 {
   .process-steps {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .desktop-configurator-slot {
+    display: none;
+  }
+
+  .mobile-configurator-slot {
+    display: block;
+    grid-column: 1 / -1;
+  }
+
+  .mobile-configurator-slot .configurator {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+  }
+
+  .mobile-configurator-slot .config-image {
+    display: none;
   }
 }
 
