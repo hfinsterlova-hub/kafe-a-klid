@@ -62,10 +62,12 @@ img {
 }
 
 .brand-lockup,
+.auth-brand,
 .kpi-strip,
 .metric,
 .role-tabs,
 .role-tab,
+.session-button,
 .notice,
 .process-steps,
 .product-actions,
@@ -87,9 +89,130 @@ img {
   align-items: center;
 }
 
-.brand-lockup {
+.brand-lockup,
+.auth-brand {
   gap: 0.85rem;
   min-width: 15rem;
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(20rem, 0.72fr) minmax(24rem, 1fr);
+  gap: 1rem;
+  width: min(1180px, calc(100% - 2rem));
+  min-height: 100vh;
+  align-items: center;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  background: #ffffff;
+  border: 1px solid #dfe8e6;
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(24, 60, 64, 0.1);
+}
+
+.auth-mode {
+  width: 100%;
+}
+
+.auth-mode button {
+  flex: 1;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #324449;
+  font-weight: 750;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  color: #1d2528;
+  background: #f8fbfa;
+  border: 1px solid #cfdcda;
+  border-radius: 8px;
+}
+
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  color: #9a1730;
+  background: #fde8eb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.guest-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.6rem;
+  color: #183c40;
+  background: #ffffff;
+  border: 1px solid #cfdcda;
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.guest-button:hover {
+  background: #f0f6f4;
+}
+
+.auth-hero {
+  position: relative;
+  min-height: 36rem;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.auth-hero img {
+  width: 100%;
+  height: 100%;
+  min-height: 36rem;
+  object-fit: cover;
+}
+
+.auth-hero::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(180deg, rgba(24, 60, 64, 0.05), rgba(24, 60, 64, 0.72));
+}
+
+.auth-hero-copy {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #ffffff;
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  line-height: 1.2;
+}
+
+.auth-hero-copy svg {
+  flex: 0 0 auto;
+  color: #f5c453;
 }
 
 .brand-mark {
@@ -153,6 +276,22 @@ h3 {
 
 .metric strong {
   font-size: 0.95rem;
+}
+
+.session-button {
+  min-height: 2.55rem;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0 0.75rem;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.session-button:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .workspace {
@@ -277,6 +416,30 @@ h3 {
   border-color: #0f766e;
 }
 
+.process-steps li.active {
+  color: #183c40;
+  font-weight: 850;
+}
+
+.process-steps li.active span {
+  color: #183c40;
+  background: #f5c453;
+  border-color: #c88906;
+  box-shadow: 0 0 0 4px rgba(245, 196, 83, 0.24);
+}
+
+.process-steps li.error {
+  color: #9a1730;
+  font-weight: 850;
+}
+
+.process-steps li.error span {
+  color: #ffffff;
+  background: #b4233a;
+  border-color: #b4233a;
+  box-shadow: 0 0 0 4px rgba(180, 35, 58, 0.16);
+}
+
 .customer-grid,
 .inventory-grid,
 .admin-grid {
@@ -333,6 +496,18 @@ h3 {
   background: #f8fbfa;
   border: 1px solid #cfdcda;
   border-radius: 8px;
+}
+
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.4rem;
+  padding: 0 0.7rem;
+  color: #183c40;
+  background: #e9f3f1;
+  border-radius: 8px;
+  font-weight: 850;
 }
 
 .product-grid {
@@ -549,6 +724,89 @@ h3 {
   font-size: 0.86rem;
 }
 
+.payment-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #f8fbfa;
+  border: 1px solid #e1ebe8;
+  border-radius: 8px;
+}
+
+.payment-method button {
+  flex: 1;
+}
+
+.payment-fields {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.payment-fields label {
+  display: grid;
+  gap: 0.3rem;
+  color: #435457;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.payment-fields input {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0 0.65rem;
+  color: #1d2528;
+  background: #ffffff;
+  border: 1px solid #cfdcda;
+  border-radius: 8px;
+}
+
+.payment-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, 0.6fr);
+  gap: 0.6rem;
+}
+
+.wallet-summary,
+.payment-message {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border-radius: 8px;
+}
+
+.wallet-summary {
+  color: #183c40;
+  background: #ffffff;
+  border: 1px solid #dfe8e6;
+}
+
+.wallet-summary div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.wallet-summary span {
+  color: #5c6d72;
+  font-size: 0.86rem;
+}
+
+.payment-message {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.payment-message.success {
+  color: #087248;
+  background: #e6f8ef;
+}
+
+.payment-message.danger {
+  color: #9a1730;
+  background: #fde8eb;
+}
+
 .payment-mode {
   margin-bottom: 0.75rem;
 }
@@ -571,6 +829,96 @@ h3 {
   gap: 0.45rem;
   margin-bottom: 0.65rem;
   color: #183c40;
+}
+
+.customer-order-note {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  color: #183c40;
+  background: #f8fbfa;
+  border: 1px solid #d5e5e2;
+  border-left: 4px solid #0f766e;
+  border-radius: 8px;
+}
+
+.customer-order-note.success {
+  border-left-color: #119769;
+}
+
+.customer-order-note.danger {
+  border-left-color: #b4233a;
+}
+
+.customer-order-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.customer-order-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: #0f766e;
+  background: #e6f8ef;
+  border-radius: 8px;
+}
+
+.customer-order-note.danger .customer-order-icon {
+  color: #9a1730;
+  background: #fde8eb;
+}
+
+.customer-order-head div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.customer-order-head span,
+.customer-order-lines {
+  color: #5c6d72;
+  font-size: 0.86rem;
+}
+
+.customer-order-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.customer-order-meta span {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem;
+  background: #ffffff;
+  border: 1px solid #e1ebe8;
+  border-radius: 8px;
+}
+
+.customer-order-meta small {
+  color: #6d7b7f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.customer-order-meta strong {
+  font-size: 0.9rem;
+}
+
+.customer-order-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.customer-order-lines span {
+  padding: 0.25rem 0.45rem;
+  background: #edf5f3;
+  border-radius: 999px;
 }
 
 .ready-note {
@@ -928,12 +1276,23 @@ h3 {
   .process-strip,
   .customer-grid,
   .inventory-grid,
-  .admin-grid {
+  .admin-grid,
+  .auth-shell {
     grid-template-columns: 1fr;
   }
 
   .topbar {
     display: grid;
+  }
+
+  .auth-shell {
+    align-items: start;
+    min-height: auto;
+  }
+
+  .auth-hero,
+  .auth-hero img {
+    min-height: 18rem;
   }
 
   .kpi-strip {
@@ -951,6 +1310,11 @@ h3 {
 }
 
 @media (max-width: 640px) {
+  .auth-shell {
+    width: min(100% - 0.8rem, 1180px);
+    padding: 0.8rem 0;
+  }
+
   .workspace {
     width: min(100% - 0.8rem, 1480px);
     margin-top: 0.4rem;

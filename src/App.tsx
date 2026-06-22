@@ -14,8 +14,10 @@ import {
   DollarSign,
   HandCoins,
   Heart,
+  KeyRound,
   ListChecks,
   LogIn,
+  LogOut,
   Minus,
   Package,
   PackageCheck,
@@ -24,12 +26,17 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Star,
   Timer,
   User,
+  UserPlus,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { authenticate, createGuestSession } from "./auth";
+import { clientStepLabels, getClientStepProgress, getClientStepState } from "./clientSteps";
 import { initialInventory, initialProducts, milkOptions, seedOrders, sizeOptions } from "./data";
 import {
   activeOrderConsumption,
@@ -44,7 +51,10 @@ import {
   lineUnitPrice,
   stockCheck,
 } from "./orderLogic";
+import { completePayment, createInitialPaymentState, resetPaymentStatus } from "./payment";
 import type { CartLine, InventoryItem, ItemOptions, Order, OrderStatus, Product, RoleKey } from "./types";
+import type { AuthMode, AuthSession } from "./auth";
+import type { PaymentMethod, PaymentState } from "./payment";
 
 type Notice = {
   tone: "success" | "warning" | "danger";
@@ -73,6 +83,7 @@ const pickupOptions = ["08:30", "08:45", "09:00", "09:15", "09:30", "09:45", "10
 const customerName = "Klára Baliová";
 
 function App() {
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [activeRole, setActiveRole] = useState<RoleKey>("customer");
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
@@ -82,7 +93,8 @@ function App() {
   const [draftOptions, setDraftOptions] = useState<ItemOptions>(defaultOptions);
   const [pickupTime, setPickupTime] = useState("09:30");
   const [accountMode, setAccountMode] = useState<"registered" | "guest">("registered");
-  const [paymentMode, setPaymentMode] = useState<"success" | "failure">("success");
+  const [payment, setPayment] = useState<PaymentState>(createInitialPaymentState);
+  const [customerOrderId, setCustomerOrderId] = useState<string | null>(null);
   const [nextOrderNumber, setNextOrderNumber] = useState(1009);
   const [loyaltyPoints, setLoyaltyPoints] = useState(132);
   const [notice, setNotice] = useState<Notice>({
@@ -94,16 +106,51 @@ function App() {
   const reserved = useMemo(() => activeOrderConsumption(orders), [orders]);
   const total = useMemo(() => cartTotal(cart, products), [cart, products]);
   const selectedProduct = products.find((product) => product.id === selectedProductId) ?? products[0];
-  const latestOrder = orders[0];
+  const customerOrder = customerOrderId ? orders.find((order) => order.id === customerOrderId) : undefined;
   const readyOrders = orders.filter((order) => order.status === "ready");
   const activeOrders = orders.filter((order) => !["handed", "cancelled"].includes(order.status));
   const paidRevenue = orders
     .filter((order) => order.paymentStatus === "paid" && order.status !== "cancelled")
     .reduce((sum, order) => sum + order.total, 0);
   const lowStockCount = inventory.filter((item) => item.current - (reserved[item.id] ?? 0) <= item.min).length;
+  const isAdminSession = session?.access === "admin";
+  const effectiveAccountMode =
+    session?.kind === "guest" ? "guest" : session?.kind === "customer" ? "registered" : accountMode;
+  const activeRoleTabs = isAdminSession ? roleTabs : roleTabs.filter((tab) => tab.id === "customer");
+
+  function startSession(nextSession: AuthSession) {
+    setSession(nextSession);
+    setActiveRole("customer");
+    setAccountMode(nextSession.registered ? "registered" : "guest");
+    setCart([]);
+    setPayment(createInitialPaymentState());
+    setCustomerOrderId(null);
+    setNotice({
+      tone: "success",
+      title: nextSession.kind === "guest" ? "Pokračujete jako host" : `Přihlášeno: ${nextSession.name}`,
+      detail:
+        nextSession.access === "admin"
+          ? "Admin má přístup ke všem rolím aplikace."
+          : "Zobrazuje se zákaznická část aplikace.",
+    });
+  }
+
+  function logout() {
+    setSession(null);
+    setActiveRole("customer");
+    setAccountMode("registered");
+    setCart([]);
+    setPayment(createInitialPaymentState());
+    setCustomerOrderId(null);
+  }
+
+  if (!session) {
+    return <AuthScreen onSession={startSession} />;
+  }
 
   function addToCart(product: Product) {
     const options = product.customizable ? draftOptions : defaultOptions;
+    setPayment((current) => resetPaymentStatus(current));
     setCart((current) => {
       const existing = current.find(
         (line) =>
@@ -132,6 +179,7 @@ function App() {
   }
 
   function updateQuantity(lineId: string, delta: number) {
+    setPayment((current) => resetPaymentStatus(current));
     setCart((current) =>
       current
         .map((line) => (line.id === lineId ? { ...line, quantity: line.quantity + delta } : line))
@@ -139,7 +187,35 @@ function App() {
     );
   }
 
+  function updatePayment(nextPayment: PaymentState) {
+    setPayment(resetPaymentStatus(nextPayment));
+  }
+
+  function finishPayment() {
+    const result = completePayment(total, payment);
+
+    if (!result.ok) {
+      setPayment((current) => ({
+        ...current,
+        status: "failed",
+        error: result.error,
+        receipt: "",
+      }));
+      return;
+    }
+
+    setPayment((current) => ({
+      ...current,
+      status: "paid",
+      error: "",
+      receipt: result.receipt,
+    }));
+  }
+
   function submitOrder() {
+    const currentSession = session;
+    if (!currentSession) return;
+
     if (cart.length === 0) {
       setNotice({
         tone: "warning",
@@ -149,11 +225,11 @@ function App() {
       return;
     }
 
-    if (paymentMode === "failure") {
+    if (payment.status !== "paid") {
       setNotice({
-        tone: "danger",
-        title: "Platba selhala",
-        detail: "Objednávka byla zastavena a zákazníkovi se nabízí opakování platby.",
+        tone: "warning",
+        title: "Platba není dokončená",
+        detail: "Nejdřív dokončete platbu v platebním modulu.",
       });
       return;
     }
@@ -172,22 +248,33 @@ function App() {
       return;
     }
 
-    const order = createOrder({
-      cart,
-      products,
-      number: nextOrderNumber,
-      customerName: accountMode === "registered" ? customerName : "Host",
-      registered: accountMode === "registered",
-      pickupTime,
-    });
+    const order: Order = {
+      ...createOrder({
+        cart,
+        products,
+        number: nextOrderNumber,
+        customerName:
+          effectiveAccountMode === "registered"
+            ? currentSession.kind === "customer"
+              ? currentSession.name
+              : customerName
+            : "Host",
+        registered: effectiveAccountMode === "registered",
+        pickupTime,
+      }),
+      stockDeducted: true,
+    };
 
+    setInventory((current) => deductInventory(current, order.consumption));
     setOrders((current) => [order, ...current]);
+    setCustomerOrderId(order.id);
     setNextOrderNumber((current) => current + 1);
     setCart([]);
+    setPayment(createInitialPaymentState());
     setNotice({
       tone: "success",
       title: `Objednávka ${order.number} přijata`,
-      detail: `Platba proběhla a objednávka čeká na obsluhu pro vyzvednutí v ${pickupTime}.`,
+      detail: `Platba proběhla, zásoby se odečetly a objednávka čeká na obsluhu pro vyzvednutí v ${pickupTime}.`,
     });
   }
 
@@ -276,32 +363,53 @@ function App() {
         </div>
 
         <div className="kpi-strip" aria-label="Provozní přehled">
-          <Metric icon={ClipboardList} label="Aktivní" value={activeOrders.length.toString()} />
-          <Metric icon={DollarSign} label="Tržby" value={formatCurrency(paidRevenue)} />
-          <Metric icon={AlertTriangle} label="Nízké zásoby" value={lowStockCount.toString()} />
-          <Metric icon={Heart} label="Body" value={loyaltyPoints.toString()} />
+          {isAdminSession ? (
+            <>
+              <Metric icon={ClipboardList} label="Aktivní" value={activeOrders.length.toString()} />
+              <Metric icon={DollarSign} label="Tržby" value={formatCurrency(paidRevenue)} />
+              <Metric icon={AlertTriangle} label="Nízké zásoby" value={lowStockCount.toString()} />
+              <Metric icon={Heart} label="Body" value={loyaltyPoints.toString()} />
+            </>
+          ) : (
+            <>
+              <Metric icon={ShoppingBag} label="Košík" value={cart.length.toString()} />
+              <Metric icon={Bell} label="Hotové" value={readyOrders.length.toString()} />
+              <Metric icon={Heart} label="Body" value={session.registered ? loyaltyPoints.toString() : "0"} />
+            </>
+          )}
+          <button className="session-button" type="button" onClick={logout}>
+            <LogOut size={16} aria-hidden />
+            {session.name}
+          </button>
         </div>
       </header>
 
       <main className="workspace">
-        <nav className="role-tabs" aria-label="Role aplikace">
-          {roleTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                className={activeRole === tab.id ? "role-tab active" : "role-tab"}
-                onClick={() => setActiveRole(tab.id)}
-                type="button"
-              >
-                <Icon size={18} aria-hidden />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+        {isAdminSession && (
+          <nav className="role-tabs" aria-label="Role aplikace">
+            {activeRoleTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={activeRole === tab.id ? "role-tab active" : "role-tab"}
+                  onClick={() => setActiveRole(tab.id)}
+                  type="button"
+                >
+                  <Icon size={18} aria-hidden />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
-        <ProcessStrip order={latestOrder} notice={notice} />
+        <ProcessStrip
+          order={cart.length === 0 ? customerOrder : undefined}
+          notice={notice}
+          cartCount={cart.length}
+          paymentStatus={payment.status}
+        />
 
         {activeRole === "customer" && (
           <CustomerView
@@ -321,12 +429,15 @@ function App() {
             onQuantity={updateQuantity}
             pickupTime={pickupTime}
             setPickupTime={setPickupTime}
-            accountMode={accountMode}
+            accountMode={effectiveAccountMode}
             setAccountMode={setAccountMode}
-            paymentMode={paymentMode}
-            setPaymentMode={setPaymentMode}
+            canSwitchAccountMode={isAdminSession}
+            sessionLabel={session.kind === "guest" ? "Host bez přihlášení" : session.name}
+            payment={payment}
+            setPayment={updatePayment}
+            finishPayment={finishPayment}
             submitOrder={submitOrder}
-            readyOrders={readyOrders}
+            customerOrder={customerOrder}
           />
         )}
 
@@ -359,6 +470,122 @@ function App() {
   );
 }
 
+function AuthScreen({ onSession }: { onSession: (session: AuthSession) => void }) {
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const result = authenticate(username, password, mode);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setError("");
+    onSession(result.session);
+  }
+
+  function continueAsGuest() {
+    setError("");
+    onSession(createGuestSession());
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-panel" aria-label="Přihlášení">
+        <div className="auth-brand">
+          <span className="brand-mark">
+            <Coffee size={24} aria-hidden />
+          </span>
+          <div>
+            <p className="eyebrow">Mobilní aplikace</p>
+            <h1>Kafe a klid</h1>
+          </div>
+        </div>
+
+        <div className="segmented auth-mode" role="group" aria-label="Režim">
+          <button
+            type="button"
+            className={mode === "login" ? "active" : ""}
+            onClick={() => {
+              setMode("login");
+              setError("");
+            }}
+          >
+            <LogIn size={16} aria-hidden />
+            Přihlášení
+          </button>
+          <button
+            type="button"
+            className={mode === "register" ? "active" : ""}
+            onClick={() => {
+              setMode("register");
+              setError("");
+            }}
+          >
+            <UserPlus size={16} aria-hidden />
+            Registrace
+          </button>
+        </div>
+
+        <form className="auth-form" onSubmit={submitAuth}>
+          <label>
+            <span>Jméno</span>
+            <input
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              type="text"
+            />
+          </label>
+
+          <label>
+            <span>Heslo</span>
+            <input
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+            />
+          </label>
+
+          {error && (
+            <div className="auth-error" role="alert">
+              <Ban size={16} aria-hidden />
+              {error}
+            </div>
+          )}
+
+          <button className="primary-button wide" type="submit">
+            {mode === "register" ? <UserPlus size={18} aria-hidden /> : <KeyRound size={18} aria-hidden />}
+            {mode === "register" ? "Registrovat" : "Přihlásit"}
+          </button>
+        </form>
+
+        <button className="guest-button" type="button" onClick={continueAsGuest}>
+          <User size={18} aria-hidden />
+          Pokračovat jako host
+        </button>
+      </section>
+
+      <section className="auth-hero" aria-label="Kavárna">
+        <img
+          src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80"
+          alt="Kavárenský stůl s kávou"
+        />
+        <div className="auth-hero-copy">
+          <ShieldCheck size={24} aria-hidden />
+          <strong>Osobní objednávky, rychlá obsluha, klidnější provoz.</strong>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function Metric({ icon: Icon, label, value }: { icon: typeof Coffee; label: string; value: string }) {
   return (
     <div className="metric">
@@ -369,17 +596,22 @@ function Metric({ icon: Icon, label, value }: { icon: typeof Coffee; label: stri
   );
 }
 
-function ProcessStrip({ order, notice }: { order?: Order; notice: Notice }) {
-  const steps = ["Účet", "Nabídka", "Platba", "Sklad", "Obsluha", "Příprava", "Notifikace", "Vyzvednutí"];
-  const statusIndex: Record<OrderStatus, number> = {
-    new: 4,
-    accepted: 4,
-    preparing: 5,
-    ready: 6,
-    handed: 7,
-    cancelled: 2,
-  };
-  const currentIndex = order ? statusIndex[order.status] : 1;
+function ProcessStrip({
+  order,
+  notice,
+  cartCount,
+  paymentStatus,
+}: {
+  order?: Order;
+  notice: Notice;
+  cartCount: number;
+  paymentStatus: PaymentState["status"];
+}) {
+  const progress = getClientStepProgress({
+    cartCount,
+    paymentStatus,
+    orderStatus: order?.status,
+  });
 
   return (
     <section className={`process-strip ${notice.tone}`} aria-label="Stav procesu objednávky">
@@ -391,12 +623,19 @@ function ProcessStrip({ order, notice }: { order?: Order; notice: Notice }) {
         </div>
       </div>
       <ol className="process-steps">
-        {steps.map((step, index) => (
-          <li key={step} className={index <= currentIndex ? "done" : ""}>
-            <span>{index + 1}</span>
-            {step}
-          </li>
-        ))}
+        {clientStepLabels.map((step, index) => {
+          const state = getClientStepState(index, progress);
+          return (
+            <li
+              key={step}
+              className={state}
+              aria-current={state === "active" || state === "error" ? "step" : undefined}
+            >
+              <span>{index + 1}</span>
+              {step}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
@@ -418,10 +657,13 @@ function CustomerView(props: {
   setPickupTime: (value: string) => void;
   accountMode: "registered" | "guest";
   setAccountMode: (value: "registered" | "guest") => void;
-  paymentMode: "success" | "failure";
-  setPaymentMode: (value: "success" | "failure") => void;
+  canSwitchAccountMode: boolean;
+  sessionLabel: string;
+  payment: PaymentState;
+  setPayment: (payment: PaymentState) => void;
+  finishPayment: () => void;
   submitOrder: () => void;
-  readyOrders: Order[];
+  customerOrder?: Order;
 }) {
   const {
     products,
@@ -439,10 +681,13 @@ function CustomerView(props: {
     setPickupTime,
     accountMode,
     setAccountMode,
-    paymentMode,
-    setPaymentMode,
+    canSwitchAccountMode,
+    sessionLabel,
+    payment,
+    setPayment,
+    finishPayment,
     submitOrder,
-    readyOrders,
+    customerOrder,
   } = props;
 
   return (
@@ -453,24 +698,31 @@ function CustomerView(props: {
             <p className="eyebrow">Aktuální nabídka</p>
             <h2>Předobjednávka</h2>
           </div>
-          <div className="segmented compact" role="group" aria-label="Typ účtu">
-            <button
-              type="button"
-              className={accountMode === "registered" ? "active" : ""}
-              onClick={() => setAccountMode("registered")}
-            >
-              <LogIn size={16} aria-hidden />
-              Účet
-            </button>
-            <button
-              type="button"
-              className={accountMode === "guest" ? "active" : ""}
-              onClick={() => setAccountMode("guest")}
-            >
+          {canSwitchAccountMode ? (
+            <div className="segmented compact" role="group" aria-label="Typ účtu">
+              <button
+                type="button"
+                className={accountMode === "registered" ? "active" : ""}
+                onClick={() => setAccountMode("registered")}
+              >
+                <LogIn size={16} aria-hidden />
+                Účet
+              </button>
+              <button
+                type="button"
+                className={accountMode === "guest" ? "active" : ""}
+                onClick={() => setAccountMode("guest")}
+              >
+                <User size={16} aria-hidden />
+                Host
+              </button>
+            </div>
+          ) : (
+            <div className="account-badge">
               <User size={16} aria-hidden />
-              Host
-            </button>
-          </div>
+              {sessionLabel}
+            </div>
+          )}
         </div>
 
         <div className="product-grid">
@@ -571,33 +823,27 @@ function CustomerView(props: {
             })}
           </div>
 
-          <div className="segmented payment-mode" role="group" aria-label="Simulace platby">
-            <button
-              type="button"
-              className={paymentMode === "success" ? "active" : ""}
-              onClick={() => setPaymentMode("success")}
-            >
-              <CreditCard size={16} aria-hidden />
-              Platba OK
-            </button>
-            <button
-              type="button"
-              className={paymentMode === "failure" ? "active danger" : ""}
-              onClick={() => setPaymentMode("failure")}
-            >
-              <Ban size={16} aria-hidden />
-              Selhání
-            </button>
-          </div>
+          <PaymentModule
+            payment={payment}
+            setPayment={setPayment}
+            total={total}
+            cartHasItems={cart.length > 0}
+            finishPayment={finishPayment}
+          />
 
           <div className="total-row">
             <span>Celkem</span>
             <strong>{formatCurrency(total)}</strong>
           </div>
 
-          <button type="button" className="primary-button wide" onClick={submitOrder}>
-            <CreditCard size={18} aria-hidden />
-            Zaplatit a odeslat
+          <button
+            type="button"
+            className="primary-button wide"
+            onClick={submitOrder}
+            disabled={cart.length === 0 || payment.status !== "paid"}
+          >
+            <CheckCircle2 size={18} aria-hidden />
+            Odeslat objednávku
           </button>
         </div>
 
@@ -606,18 +852,242 @@ function CustomerView(props: {
             <Bell size={17} aria-hidden />
             <strong>Notifikace</strong>
           </div>
-          {readyOrders.length === 0 ? (
-            <p className="empty-state">Žádná hotová objednávka.</p>
+          {customerOrder ? (
+            <CustomerOrderNotification order={customerOrder} />
           ) : (
-            readyOrders.map((order) => (
-              <div className="ready-note" key={order.id}>
-                <CheckCircle2 size={17} aria-hidden />
-                <span>{order.number} je připravena k vyzvednutí.</span>
-              </div>
-            ))
+            <p className="empty-state">Po odeslání se tady zobrazí stav vaší objednávky.</p>
           )}
         </div>
       </aside>
+    </section>
+  );
+}
+
+function CustomerOrderNotification({ order }: { order: Order }) {
+  const meta = getCustomerOrderStatus(order.status);
+  const Icon = meta.icon;
+
+  return (
+    <div className={`customer-order-note ${meta.tone}`} role="status" aria-live="polite">
+      <div className="customer-order-head">
+        <span className="customer-order-icon">
+          <Icon size={18} aria-hidden />
+        </span>
+        <div>
+          <strong>{meta.title}</strong>
+          <span>{meta.detail}</span>
+        </div>
+      </div>
+
+      <div className="customer-order-meta">
+        <span>
+          <small>Číslo</small>
+          <strong>{order.number}</strong>
+        </span>
+        <span>
+          <small>Platba</small>
+          <strong>Zaplaceno</strong>
+        </span>
+        <span>
+          <small>Vyzvednutí</small>
+          <strong>{order.pickupTime}</strong>
+        </span>
+        <span>
+          <small>Celkem</small>
+          <strong>{formatCurrency(order.total)}</strong>
+        </span>
+      </div>
+
+      <div className="customer-order-lines">
+        {order.lines.map((line) => (
+          <span key={line.id}>
+            {line.quantity}× {line.productName}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getCustomerOrderStatus(status: OrderStatus): {
+  title: string;
+  detail: string;
+  tone: "info" | "success" | "danger";
+  icon: typeof Clock3;
+} {
+  switch (status) {
+    case "new":
+      return {
+        title: "Objednávka přijata",
+        detail: "Platba proběhla a objednávka čeká na potvrzení obsluhou.",
+        tone: "info",
+        icon: Clock3,
+      };
+    case "accepted":
+      return {
+        title: "Objednávka potvrzena",
+        detail: "Obsluha ji převzala a za chvíli ji začne připravovat.",
+        tone: "info",
+        icon: ClipboardList,
+      };
+    case "preparing":
+      return {
+        title: "Objednávka se připravuje",
+        detail: "Barista právě připravuje vaši objednávku.",
+        tone: "info",
+        icon: ChefHat,
+      };
+    case "ready":
+      return {
+        title: "Objednávka je hotová",
+        detail: "Můžete si ji vyzvednout u obsluhy.",
+        tone: "success",
+        icon: PackageCheck,
+      };
+    case "handed":
+      return {
+        title: "Objednávka vydána",
+        detail: "Děkujeme za návštěvu.",
+        tone: "success",
+        icon: CheckCircle2,
+      };
+    case "cancelled":
+      return {
+        title: "Objednávka zrušena",
+        detail: "Objednávka nebude připravena. Platbu by bylo potřeba vrátit mimo tento prototyp.",
+        tone: "danger",
+        icon: Ban,
+      };
+  }
+}
+
+function PaymentModule({
+  payment,
+  setPayment,
+  total,
+  cartHasItems,
+  finishPayment,
+}: {
+  payment: PaymentState;
+  setPayment: (payment: PaymentState) => void;
+  total: number;
+  cartHasItems: boolean;
+  finishPayment: () => void;
+}) {
+  function setMethod(method: PaymentMethod) {
+    setPayment({ ...payment, method });
+  }
+
+  function setField(field: "holderName" | "cardNumber" | "expiry" | "cvc", value: string) {
+    setPayment({ ...payment, [field]: value });
+  }
+
+  return (
+    <section className="payment-panel" aria-label="Platba">
+      <div className="mini-heading">
+        <CreditCard size={17} aria-hidden />
+        <strong>Platba</strong>
+      </div>
+
+      <div className="segmented payment-method" role="group" aria-label="Platební metoda">
+        <button
+          type="button"
+          className={payment.method === "card" ? "active" : ""}
+          onClick={() => setMethod("card")}
+        >
+          <CreditCard size={16} aria-hidden />
+          Karta
+        </button>
+        <button
+          type="button"
+          className={payment.method === "wallet" ? "active" : ""}
+          onClick={() => setMethod("wallet")}
+        >
+          <ShieldCheck size={16} aria-hidden />
+          V aplikaci
+        </button>
+      </div>
+
+      {payment.method === "card" ? (
+        <div className="payment-fields">
+          <label>
+            <span>Držitel karty</span>
+            <input
+              value={payment.holderName}
+              onChange={(event) => setField("holderName", event.target.value)}
+              autoComplete="cc-name"
+              type="text"
+            />
+          </label>
+          <label>
+            <span>Číslo karty</span>
+            <input
+              value={formatCardNumber(payment.cardNumber)}
+              onChange={(event) => setField("cardNumber", event.target.value)}
+              autoComplete="cc-number"
+              inputMode="numeric"
+              maxLength={23}
+              type="text"
+            />
+          </label>
+          <div className="payment-field-row">
+            <label>
+              <span>Platnost</span>
+              <input
+                value={payment.expiry}
+                onChange={(event) => setField("expiry", event.target.value)}
+                autoComplete="cc-exp"
+                inputMode="numeric"
+                maxLength={5}
+                type="text"
+              />
+            </label>
+            <label>
+              <span>CVC</span>
+              <input
+                value={payment.cvc}
+                onChange={(event) => setField("cvc", event.target.value)}
+                autoComplete="cc-csc"
+                inputMode="numeric"
+                maxLength={4}
+                type="password"
+              />
+            </label>
+          </div>
+        </div>
+      ) : (
+        <div className="wallet-summary">
+          <ShieldCheck size={18} aria-hidden />
+          <div>
+            <strong>Kafe karta</strong>
+            <span>{formatCurrency(total)}</span>
+          </div>
+        </div>
+      )}
+
+      {payment.error && (
+        <div className="payment-message danger" role="alert">
+          <Ban size={16} aria-hidden />
+          {payment.error}
+        </div>
+      )}
+
+      {payment.status === "paid" && (
+        <div className="payment-message success">
+          <CheckCircle2 size={16} aria-hidden />
+          <span>Zaplaceno {formatCurrency(total)}</span>
+        </div>
+      )}
+
+      <button
+        className="secondary-button wide"
+        type="button"
+        onClick={finishPayment}
+        disabled={!cartHasItems}
+      >
+        <CreditCard size={17} aria-hidden />
+        Dokončit platbu
+      </button>
     </section>
   );
 }
@@ -1050,6 +1520,13 @@ function formatOptions(options: ItemOptions, customizable: boolean) {
   const size = findSize(options.sizeId).label;
   const milk = findMilk(options.milkId).label;
   return `${size}, ${milk}, cukr ${options.sugar}`;
+}
+
+function formatCardNumber(value: string) {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 19)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
 }
 
 export default App;

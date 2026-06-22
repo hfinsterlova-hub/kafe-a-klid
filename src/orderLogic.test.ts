@@ -3,6 +3,7 @@ import { initialInventory, initialProducts } from "./data";
 import {
   cartConsumption,
   createOrder,
+  deductInventory,
   defaultOptions,
   lineUnitPrice,
   stockCheck,
@@ -62,5 +63,15 @@ describe("order logic", () => {
     expect(order.total).toBe(118);
     expect(order.pointsEarned).toBe(11);
     expect(order.consumption.coffeeBeans).toBe(36);
+  });
+
+  it("deducts ordered ingredients from inventory", () => {
+    const updatedInventory = deductInventory(initialInventory, {
+      coffeeBeans: 36,
+      milk: 120,
+    });
+
+    expect(updatedInventory.find((item) => item.id === "coffeeBeans")?.current).toBe(2764);
+    expect(updatedInventory.find((item) => item.id === "milk")?.current).toBe(5080);
   });
 });
