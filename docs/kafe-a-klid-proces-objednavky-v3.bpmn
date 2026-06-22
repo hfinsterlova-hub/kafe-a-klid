@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_KafeAKlid_App_v3" targetNamespace="https://hfinsterlova-hub.github.io/kafe-a-klid" exporter="Camunda Modeler" exporterVersion="5.47.0">
+  <bpmn:collaboration id="Collaboration_KafeAKlid">
+    <bpmn:participant id="Participant_KafeAKlid" name="Kafe a klid - objednávka přes aplikaci" processRef="Process_KafeAKlid_Order" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_KafeAKlid_Order" name="Kafe a klid - zákaznická objednávka" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_KafeAKlid">
+      <bpmn:lane id="Lane_Zakaznik" name="Zákazník">
+        <bpmn:flowNodeRef>StartEvent_AppOpened</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AccessChoice</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_LoginOrRegister</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ContinueAsGuest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_AccessMerged</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_SelectItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CompletePayment</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PickupOrder</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_OrderDone</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Aplikace" name="Aplikace Kafe a klid">
+        <bpmn:flowNodeRef>Task_UpdateCartAndStepper</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ShowPaymentError</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CheckStock</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_StockAvailable</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ShowStockShortage</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CreateOrder</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyOrderAccepted</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyOrderReady</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_LoadOffer</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Platba" name="Platební modul">
+        <bpmn:flowNodeRef>Task_ProcessPayment</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_PaymentSuccessful</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sklad" name="Sklad">
+        <bpmn:flowNodeRef>Task_DeductInventory</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Obsluha" name="Obsluha / barista">
+        <bpmn:flowNodeRef>Task_AcceptOrder</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PrepareOrder</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_MarkReady</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_HandOverOrder</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent_AppOpened" name="Zákazník otevře aplikaci">
+      <bpmn:outgoing>Flow_Start_Access</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:exclusiveGateway id="Gateway_AccessChoice" name="Jak zákazník pokračuje?">
+      <bpmn:incoming>Flow_Start_Access</bpmn:incoming>
+      <bpmn:outgoing>Flow_Access_Login</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Access_Guest</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_LoginOrRegister" name="Přihlásí se nebo se zaregistruje">
+      <bpmn:incoming>Flow_Access_Login</bpmn:incoming>
+      <bpmn:outgoing>Flow_Login_Merge</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_ContinueAsGuest" name="Pokračuje jako host bez přihlášení">
+      <bpmn:incoming>Flow_Access_Guest</bpmn:incoming>
+      <bpmn:outgoing>Flow_Guest_Merge</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="Gateway_AccessMerged">
+      <bpmn:incoming>Flow_Login_Merge</bpmn:incoming>
+      <bpmn:incoming>Flow_Guest_Merge</bpmn:incoming>
+      <bpmn:outgoing>Flow_Merge_LoadOffer</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_SelectItems" name="Vybere produkty a varianty">
+      <bpmn:incoming>Flow_Load_Select</bpmn:incoming>
+      <bpmn:incoming>Flow_Shortage_BackToSelect</bpmn:incoming>
+      <bpmn:outgoing>Flow_Select_UpdateCart</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_UpdateCartAndStepper" name="Aktualizuje košík a zákaznické kroky">
+      <bpmn:incoming>Flow_Select_UpdateCart</bpmn:incoming>
+      <bpmn:outgoing>Flow_UpdateCart_Pay</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_CompletePayment" name="Dokončí platbu kartou nebo v aplikaci">
+      <bpmn:incoming>Flow_UpdateCart_Pay</bpmn:incoming>
+      <bpmn:incoming>Flow_PaymentError_BackToPay</bpmn:incoming>
+      <bpmn:outgoing>Flow_Pay_ProcessPayment</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_ProcessPayment" name="Ověří platební údaje a vytvoří potvrzení">
+      <bpmn:incoming>Flow_Pay_ProcessPayment</bpmn:incoming>
+      <bpmn:outgoing>Flow_ProcessPayment_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_PaymentSuccessful" name="Platba úspěšná?">
+      <bpmn:incoming>Flow_ProcessPayment_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Payment_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Payment_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_ShowPaymentError" name="Zobrazí chybu platby a umožní opakování">
+      <bpmn:incoming>Flow_Payment_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_PaymentError_BackToPay</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_CheckStock" name="Znovu ověří dostupnost surovin">
+      <bpmn:incoming>Flow_Payment_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckStock_Gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_StockAvailable" name="Suroviny skladem?">
+      <bpmn:incoming>Flow_CheckStock_Gateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Stock_Yes</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Stock_No</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="Task_ShowStockShortage" name="Zobrazí nedostatek surovin">
+      <bpmn:incoming>Flow_Stock_No</bpmn:incoming>
+      <bpmn:outgoing>Flow_Shortage_BackToSelect</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_CreateOrder" name="Vytvoří objednávku a uloží ji do fronty">
+      <bpmn:incoming>Flow_Stock_Yes</bpmn:incoming>
+      <bpmn:outgoing>Flow_Create_DeductInventory</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_DeductInventory" name="Odečte spotřebu ze skladu">
+      <bpmn:incoming>Flow_Create_DeductInventory</bpmn:incoming>
+      <bpmn:outgoing>Flow_Deduct_NotifyAccepted</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_NotifyOrderAccepted" name="Zobrazí notifikaci: objednávka přijata">
+      <bpmn:incoming>Flow_Deduct_NotifyAccepted</bpmn:incoming>
+      <bpmn:outgoing>Flow_NotifyAccepted_AcceptOrder</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_AcceptOrder" name="Převezme objednávku">
+      <bpmn:incoming>Flow_NotifyAccepted_AcceptOrder</bpmn:incoming>
+      <bpmn:outgoing>Flow_Accept_Prepare</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_PrepareOrder" name="Připraví nápoj nebo jídlo">
+      <bpmn:incoming>Flow_Accept_Prepare</bpmn:incoming>
+      <bpmn:outgoing>Flow_Prepare_MarkReady</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_MarkReady" name="Označí objednávku jako hotovou">
+      <bpmn:incoming>Flow_Prepare_MarkReady</bpmn:incoming>
+      <bpmn:outgoing>Flow_MarkReady_NotifyReady</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="Task_NotifyOrderReady" name="Aktualizuje notifikaci: objednávka je hotová">
+      <bpmn:incoming>Flow_MarkReady_NotifyReady</bpmn:incoming>
+      <bpmn:outgoing>Flow_NotifyReady_Pickup</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="Task_PickupOrder" name="Vyzvedne objednávku">
+      <bpmn:incoming>Flow_NotifyReady_Pickup</bpmn:incoming>
+      <bpmn:outgoing>Flow_Pickup_Handoff</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_HandOverOrder" name="Předá objednávku zákazníkovi">
+      <bpmn:incoming>Flow_Pickup_Handoff</bpmn:incoming>
+      <bpmn:outgoing>Flow_Handoff_End</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="EndEvent_OrderDone" name="Objednávka vydána">
+      <bpmn:incoming>Flow_Handoff_End</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_Start_Access" sourceRef="StartEvent_AppOpened" targetRef="Gateway_AccessChoice" />
+    <bpmn:sequenceFlow id="Flow_Access_Login" name="účet" sourceRef="Gateway_AccessChoice" targetRef="Task_LoginOrRegister" />
+    <bpmn:sequenceFlow id="Flow_Access_Guest" name="host" sourceRef="Gateway_AccessChoice" targetRef="Task_ContinueAsGuest" />
+    <bpmn:sequenceFlow id="Flow_Login_Merge" sourceRef="Task_LoginOrRegister" targetRef="Gateway_AccessMerged" />
+    <bpmn:sequenceFlow id="Flow_Guest_Merge" sourceRef="Task_ContinueAsGuest" targetRef="Gateway_AccessMerged" />
+    <bpmn:sequenceFlow id="Flow_Merge_LoadOffer" sourceRef="Gateway_AccessMerged" targetRef="Task_LoadOffer" />
+    <bpmn:sequenceFlow id="Flow_Load_Select" sourceRef="Task_LoadOffer" targetRef="Task_SelectItems" />
+    <bpmn:sequenceFlow id="Flow_Select_UpdateCart" sourceRef="Task_SelectItems" targetRef="Task_UpdateCartAndStepper" />
+    <bpmn:sequenceFlow id="Flow_UpdateCart_Pay" sourceRef="Task_UpdateCartAndStepper" targetRef="Task_CompletePayment" />
+    <bpmn:sequenceFlow id="Flow_Pay_ProcessPayment" sourceRef="Task_CompletePayment" targetRef="Task_ProcessPayment" />
+    <bpmn:sequenceFlow id="Flow_ProcessPayment_Gateway" sourceRef="Task_ProcessPayment" targetRef="Gateway_PaymentSuccessful" />
+    <bpmn:sequenceFlow id="Flow_Payment_Yes" name="ano" sourceRef="Gateway_PaymentSuccessful" targetRef="Task_CheckStock" />
+    <bpmn:sequenceFlow id="Flow_Payment_No" name="ne" sourceRef="Gateway_PaymentSuccessful" targetRef="Task_ShowPaymentError" />
+    <bpmn:sequenceFlow id="Flow_PaymentError_BackToPay" sourceRef="Task_ShowPaymentError" targetRef="Task_CompletePayment" />
+    <bpmn:sequenceFlow id="Flow_CheckStock_Gateway" sourceRef="Task_CheckStock" targetRef="Gateway_StockAvailable" />
+    <bpmn:sequenceFlow id="Flow_Stock_Yes" name="ano" sourceRef="Gateway_StockAvailable" targetRef="Task_CreateOrder" />
+    <bpmn:sequenceFlow id="Flow_Stock_No" name="ne" sourceRef="Gateway_StockAvailable" targetRef="Task_ShowStockShortage" />
+    <bpmn:sequenceFlow id="Flow_Shortage_BackToSelect" sourceRef="Task_ShowStockShortage" targetRef="Task_SelectItems" />
+    <bpmn:sequenceFlow id="Flow_Create_DeductInventory" sourceRef="Task_CreateOrder" targetRef="Task_DeductInventory" />
+    <bpmn:sequenceFlow id="Flow_Deduct_NotifyAccepted" sourceRef="Task_DeductInventory" targetRef="Task_NotifyOrderAccepted" />
+    <bpmn:sequenceFlow id="Flow_NotifyAccepted_AcceptOrder" sourceRef="Task_NotifyOrderAccepted" targetRef="Task_AcceptOrder" />
+    <bpmn:sequenceFlow id="Flow_Accept_Prepare" sourceRef="Task_AcceptOrder" targetRef="Task_PrepareOrder" />
+    <bpmn:sequenceFlow id="Flow_Prepare_MarkReady" sourceRef="Task_PrepareOrder" targetRef="Task_MarkReady" />
+    <bpmn:sequenceFlow id="Flow_MarkReady_NotifyReady" sourceRef="Task_MarkReady" targetRef="Task_NotifyOrderReady" />
+    <bpmn:sequenceFlow id="Flow_NotifyReady_Pickup" sourceRef="Task_NotifyOrderReady" targetRef="Task_PickupOrder" />
+    <bpmn:sequenceFlow id="Flow_Pickup_Handoff" sourceRef="Task_PickupOrder" targetRef="Task_HandOverOrder" />
+    <bpmn:sequenceFlow id="Flow_Handoff_End" sourceRef="Task_HandOverOrder" targetRef="EndEvent_OrderDone" />
+    <bpmn:serviceTask id="Task_LoadOffer" name="Načte nabídku, ceny a dostupnost">
+      <bpmn:incoming>Flow_Merge_LoadOffer</bpmn:incoming>
+      <bpmn:outgoing>Flow_Load_Select</bpmn:outgoing>
+    </bpmn:serviceTask>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_KafeAKlid">
+    <bpmndi:BPMNPlane id="BPMNPlane_KafeAKlid" bpmnElement="Collaboration_KafeAKlid">
+      <bpmndi:BPMNShape id="Participant_KafeAKlid_di" bpmnElement="Participant_KafeAKlid" isHorizontal="true">
+        <dc:Bounds x="120" y="80" width="2490" height="770" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Obsluha_di" bpmnElement="Lane_Obsluha" isHorizontal="true">
+        <dc:Bounds x="150" y="680" width="2460" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sklad_di" bpmnElement="Lane_Sklad" isHorizontal="true">
+        <dc:Bounds x="150" y="570" width="2460" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Platba_di" bpmnElement="Lane_Platba" isHorizontal="true">
+        <dc:Bounds x="150" y="450" width="2460" height="120" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Aplikace_di" bpmnElement="Lane_Aplikace" isHorizontal="true">
+        <dc:Bounds x="150" y="230" width="2460" height="220" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Zakaznik_di" bpmnElement="Lane_Zakaznik" isHorizontal="true">
+        <dc:Bounds x="150" y="80" width="2460" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_AppOpened_di" bpmnElement="StartEvent_AppOpened">
+        <dc:Bounds x="190" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AccessChoice_di" bpmnElement="Gateway_AccessChoice" isMarkerVisible="true">
+        <dc:Bounds x="270" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_LoginOrRegister_di" bpmnElement="Task_LoginOrRegister">
+        <dc:Bounds x="360" y="92" width="130" height="62" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ContinueAsGuest_di" bpmnElement="Task_ContinueAsGuest">
+        <dc:Bounds x="360" y="164" width="130" height="56" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_AccessMerged_di" bpmnElement="Gateway_AccessMerged" isMarkerVisible="true">
+        <dc:Bounds x="540" y="130" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SelectItems_di" bpmnElement="Task_SelectItems">
+        <dc:Bounds x="800" y="120" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UpdateCartAndStepper_di" bpmnElement="Task_UpdateCartAndStepper">
+        <dc:Bounds x="800" y="310" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CompletePayment_di" bpmnElement="Task_CompletePayment">
+        <dc:Bounds x="980" y="120" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ProcessPayment_di" bpmnElement="Task_ProcessPayment">
+        <dc:Bounds x="980" y="475" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_PaymentSuccessful_di" bpmnElement="Gateway_PaymentSuccessful" isMarkerVisible="true">
+        <dc:Bounds x="1140" y="485" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ShowPaymentError_di" bpmnElement="Task_ShowPaymentError">
+        <dc:Bounds x="1120" y="335" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CheckStock_di" bpmnElement="Task_CheckStock">
+        <dc:Bounds x="1280" y="310" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_StockAvailable_di" bpmnElement="Gateway_StockAvailable" isMarkerVisible="true">
+        <dc:Bounds x="1440" y="320" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ShowStockShortage_di" bpmnElement="Task_ShowStockShortage">
+        <dc:Bounds x="1420" y="385" width="130" height="55" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CreateOrder_di" bpmnElement="Task_CreateOrder">
+        <dc:Bounds x="1580" y="310" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_DeductInventory_di" bpmnElement="Task_DeductInventory">
+        <dc:Bounds x="1580" y="590" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_NotifyOrderAccepted_di" bpmnElement="Task_NotifyOrderAccepted">
+        <dc:Bounds x="1740" y="310" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AcceptOrder_di" bpmnElement="Task_AcceptOrder">
+        <dc:Bounds x="1740" y="720" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PrepareOrder_di" bpmnElement="Task_PrepareOrder">
+        <dc:Bounds x="1900" y="720" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_MarkReady_di" bpmnElement="Task_MarkReady">
+        <dc:Bounds x="2060" y="720" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_NotifyOrderReady_di" bpmnElement="Task_NotifyOrderReady">
+        <dc:Bounds x="2060" y="310" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PickupOrder_di" bpmnElement="Task_PickupOrder">
+        <dc:Bounds x="2220" y="120" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_HandOverOrder_di" bpmnElement="Task_HandOverOrder">
+        <dc:Bounds x="2220" y="720" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_OrderDone_di" bpmnElement="EndEvent_OrderDone">
+        <dc:Bounds x="2420" y="137" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_LoadOffer_di" bpmnElement="Task_LoadOffer">
+        <dc:Bounds x="640" y="295" width="130" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Start_Access_di" bpmnElement="Flow_Start_Access">
+        <di:waypoint x="226" y="155" />
+        <di:waypoint x="270" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Access_Login_di" bpmnElement="Flow_Access_Login">
+        <di:waypoint x="295" y="130" />
+        <di:waypoint x="295" y="123" />
+        <di:waypoint x="360" y="123" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Access_Guest_di" bpmnElement="Flow_Access_Guest">
+        <di:waypoint x="295" y="180" />
+        <di:waypoint x="295" y="192" />
+        <di:waypoint x="360" y="192" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Login_Merge_di" bpmnElement="Flow_Login_Merge">
+        <di:waypoint x="490" y="123" />
+        <di:waypoint x="540" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Guest_Merge_di" bpmnElement="Flow_Guest_Merge">
+        <di:waypoint x="490" y="192" />
+        <di:waypoint x="540" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Merge_LoadOffer_di" bpmnElement="Flow_Merge_LoadOffer">
+        <di:waypoint x="590" y="155" />
+        <di:waypoint x="620" y="155" />
+        <di:waypoint x="620" y="330" />
+        <di:waypoint x="640" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Load_Select_di" bpmnElement="Flow_Load_Select">
+        <di:waypoint x="770" y="330" />
+        <di:waypoint x="785" y="330" />
+        <di:waypoint x="785" y="155" />
+        <di:waypoint x="800" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Select_UpdateCart_di" bpmnElement="Flow_Select_UpdateCart">
+        <di:waypoint x="865" y="190" />
+        <di:waypoint x="865" y="310" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_UpdateCart_Pay_di" bpmnElement="Flow_UpdateCart_Pay">
+        <di:waypoint x="930" y="345" />
+        <di:waypoint x="955" y="345" />
+        <di:waypoint x="955" y="155" />
+        <di:waypoint x="980" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Pay_ProcessPayment_di" bpmnElement="Flow_Pay_ProcessPayment">
+        <di:waypoint x="1045" y="190" />
+        <di:waypoint x="1045" y="475" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ProcessPayment_Gateway_di" bpmnElement="Flow_ProcessPayment_Gateway">
+        <di:waypoint x="1110" y="510" />
+        <di:waypoint x="1140" y="510" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Payment_Yes_di" bpmnElement="Flow_Payment_Yes">
+        <di:waypoint x="1190" y="510" />
+        <di:waypoint x="1265" y="510" />
+        <di:waypoint x="1265" y="345" />
+        <di:waypoint x="1280" y="345" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Payment_No_di" bpmnElement="Flow_Payment_No">
+        <di:waypoint x="1165" y="485" />
+        <di:waypoint x="1165" y="405" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_PaymentError_BackToPay_di" bpmnElement="Flow_PaymentError_BackToPay">
+        <di:waypoint x="1120" y="370" />
+        <di:waypoint x="1045" y="370" />
+        <di:waypoint x="1045" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_CheckStock_Gateway_di" bpmnElement="Flow_CheckStock_Gateway">
+        <di:waypoint x="1410" y="345" />
+        <di:waypoint x="1440" y="345" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Stock_Yes_di" bpmnElement="Flow_Stock_Yes">
+        <di:waypoint x="1490" y="345" />
+        <di:waypoint x="1580" y="345" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Stock_No_di" bpmnElement="Flow_Stock_No">
+        <di:waypoint x="1465" y="370" />
+        <di:waypoint x="1465" y="385" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Shortage_BackToSelect_di" bpmnElement="Flow_Shortage_BackToSelect">
+        <di:waypoint x="1420" y="412" />
+        <di:waypoint x="865" y="412" />
+        <di:waypoint x="865" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Create_DeductInventory_di" bpmnElement="Flow_Create_DeductInventory">
+        <di:waypoint x="1645" y="380" />
+        <di:waypoint x="1645" y="590" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Deduct_NotifyAccepted_di" bpmnElement="Flow_Deduct_NotifyAccepted">
+        <di:waypoint x="1710" y="625" />
+        <di:waypoint x="1805" y="625" />
+        <di:waypoint x="1805" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_NotifyAccepted_AcceptOrder_di" bpmnElement="Flow_NotifyAccepted_AcceptOrder">
+        <di:waypoint x="1805" y="380" />
+        <di:waypoint x="1805" y="720" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Accept_Prepare_di" bpmnElement="Flow_Accept_Prepare">
+        <di:waypoint x="1870" y="755" />
+        <di:waypoint x="1900" y="755" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Prepare_MarkReady_di" bpmnElement="Flow_Prepare_MarkReady">
+        <di:waypoint x="2030" y="755" />
+        <di:waypoint x="2060" y="755" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_MarkReady_NotifyReady_di" bpmnElement="Flow_MarkReady_NotifyReady">
+        <di:waypoint x="2125" y="720" />
+        <di:waypoint x="2125" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_NotifyReady_Pickup_di" bpmnElement="Flow_NotifyReady_Pickup">
+        <di:waypoint x="2190" y="345" />
+        <di:waypoint x="2205" y="345" />
+        <di:waypoint x="2205" y="155" />
+        <di:waypoint x="2220" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Pickup_Handoff_di" bpmnElement="Flow_Pickup_Handoff">
+        <di:waypoint x="2285" y="190" />
+        <di:waypoint x="2285" y="720" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Handoff_End_di" bpmnElement="Flow_Handoff_End">
+        <di:waypoint x="2350" y="755" />
+        <di:waypoint x="2385" y="755" />
+        <di:waypoint x="2385" y="155" />
+        <di:waypoint x="2420" y="155" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
