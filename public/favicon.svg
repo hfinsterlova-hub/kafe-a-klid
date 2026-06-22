@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Kafe a klid">
+  <rect width="64" height="64" rx="14" fill="#183c40" />
+  <circle cx="48" cy="16" r="6" fill="#f5c453" opacity="0.95" />
+  <path
+    d="M22 12c-3 4 3 6 0 10M32 10c-4 5 4 7 0 12M42 12c-3 4 3 6 0 10"
+    fill="none"
+    stroke="#d5ebe7"
+    stroke-width="3"
+    stroke-linecap="round"
+  />
+  <path
+    d="M16 30h28v8c0 8-6 14-14 14S16 46 16 38v-8Z"
+    fill="#f5c453"
+  />
+  <path
+    d="M44 33h5c4 0 7 3 7 7s-3 7-7 7h-5v-5h5c1 0 2-1 2-2s-1-2-2-2h-5v-5Z"
+    fill="#f5c453"
+  />
+  <path
+    d="M13 53h36"
+    fill="none"
+    stroke="#d5ebe7"
+    stroke-width="4"
+    stroke-linecap="round"
+  />
+  <path d="M20 35h18" fill="none" stroke="#183c40" stroke-width="3" stroke-linecap="round" opacity="0.38" />
+</svg>
