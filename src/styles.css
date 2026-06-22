@@ -676,6 +676,34 @@ h3 {
   font-weight: 750;
 }
 
+.cart-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  margin-top: 0.7rem;
+  color: #0b615a;
+  background: #e6f8ef;
+  border: 1px solid #bce8d2;
+  border-radius: 8px;
+}
+
+.cart-feedback svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+
+.cart-feedback div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cart-feedback span {
+  color: #315d54;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
 .stepper,
 .quantity-controls {
   display: inline-flex;

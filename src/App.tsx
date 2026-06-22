@@ -62,6 +62,12 @@ type Notice = {
   detail: string;
 };
 
+type CartFeedback = {
+  productId: string;
+  title: string;
+  detail: string;
+};
+
 const roleTabs: Array<{ id: RoleKey; label: string; icon: typeof ShoppingBag }> = [
   { id: "customer", label: "Zákazník", icon: ShoppingBag },
   { id: "staff", label: "Obsluha", icon: ClipboardList },
@@ -94,6 +100,7 @@ function App() {
   const [pickupTime, setPickupTime] = useState("09:30");
   const [accountMode, setAccountMode] = useState<"registered" | "guest">("registered");
   const [payment, setPayment] = useState<PaymentState>(createInitialPaymentState);
+  const [cartFeedback, setCartFeedback] = useState<CartFeedback | null>(null);
   const [customerOrderId, setCustomerOrderId] = useState<string | null>(null);
   const [nextOrderNumber, setNextOrderNumber] = useState(1009);
   const [loyaltyPoints, setLoyaltyPoints] = useState(132);
@@ -124,6 +131,7 @@ function App() {
     setAccountMode(nextSession.registered ? "registered" : "guest");
     setCart([]);
     setPayment(createInitialPaymentState());
+    setCartFeedback(null);
     setCustomerOrderId(null);
     setNotice({
       tone: "success",
@@ -141,6 +149,7 @@ function App() {
     setAccountMode("registered");
     setCart([]);
     setPayment(createInitialPaymentState());
+    setCartFeedback(null);
     setCustomerOrderId(null);
   }
 
@@ -151,6 +160,16 @@ function App() {
   function addToCart(product: Product) {
     const options = product.customizable ? draftOptions : defaultOptions;
     setPayment((current) => resetPaymentStatus(current));
+    setCartFeedback({
+      productId: product.id,
+      title: "Vloženo do košíku",
+      detail: `${product.name} je v košíku. Můžete pokračovat ve výběru nebo dokončit platbu.`,
+    });
+    setNotice({
+      tone: "success",
+      title: "Položka vložena do košíku",
+      detail: `${product.name} se přidalo do objednávky.`,
+    });
     setCart((current) => {
       const existing = current.find(
         (line) =>
@@ -180,6 +199,7 @@ function App() {
 
   function updateQuantity(lineId: string, delta: number) {
     setPayment((current) => resetPaymentStatus(current));
+    setCartFeedback(null);
     setCart((current) =>
       current
         .map((line) => (line.id === lineId ? { ...line, quantity: line.quantity + delta } : line))
@@ -271,6 +291,7 @@ function App() {
     setNextOrderNumber((current) => current + 1);
     setCart([]);
     setPayment(createInitialPaymentState());
+    setCartFeedback(null);
     setNotice({
       tone: "success",
       title: `Objednávka ${order.number} přijata`,
@@ -420,6 +441,7 @@ function App() {
             onSelectProduct={(productId) => {
               setSelectedProductId(productId);
               setDraftOptions(defaultOptions);
+              setCartFeedback(null);
             }}
             draftOptions={draftOptions}
             setDraftOptions={setDraftOptions}
@@ -434,6 +456,7 @@ function App() {
             canSwitchAccountMode={isAdminSession}
             sessionLabel={session.kind === "guest" ? "Host bez přihlášení" : session.name}
             payment={payment}
+            cartFeedback={cartFeedback}
             setPayment={updatePayment}
             finishPayment={finishPayment}
             submitOrder={submitOrder}
@@ -660,6 +683,7 @@ function CustomerView(props: {
   canSwitchAccountMode: boolean;
   sessionLabel: string;
   payment: PaymentState;
+  cartFeedback: CartFeedback | null;
   setPayment: (payment: PaymentState) => void;
   finishPayment: () => void;
   submitOrder: () => void;
@@ -684,6 +708,7 @@ function CustomerView(props: {
     canSwitchAccountMode,
     sessionLabel,
     payment,
+    cartFeedback,
     setPayment,
     finishPayment,
     submitOrder,
@@ -769,6 +794,7 @@ function CustomerView(props: {
                       options={draftOptions}
                       setOptions={setDraftOptions}
                       onAdd={onAdd}
+                      feedback={cartFeedback}
                     />
                   </div>
                 )}
@@ -785,6 +811,7 @@ function CustomerView(props: {
             options={draftOptions}
             setOptions={setDraftOptions}
             onAdd={onAdd}
+            feedback={cartFeedback}
           />
         </div>
 
@@ -1111,13 +1138,16 @@ function ProductConfigurator({
   options,
   setOptions,
   onAdd,
+  feedback,
 }: {
   product: Product;
   options: ItemOptions;
   setOptions: (options: ItemOptions) => void;
   onAdd: (product: Product) => void;
+  feedback?: CartFeedback | null;
 }) {
   const unitPrice = lineUnitPrice(product, options);
+  const visibleFeedback = feedback?.productId === product.id ? feedback : null;
 
   return (
     <div className="configurator">
@@ -1195,6 +1225,16 @@ function ProductConfigurator({
         <Plus size={18} aria-hidden />
         Přidat do košíku
       </button>
+
+      {visibleFeedback && (
+        <div className="cart-feedback" role="status" aria-live="polite">
+          <CheckCircle2 size={17} aria-hidden />
+          <div>
+            <strong>{visibleFeedback.title}</strong>
+            <span>{visibleFeedback.detail}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
